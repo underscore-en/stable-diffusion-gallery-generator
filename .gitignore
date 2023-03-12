@@ -1,0 +1,6 @@
+/venv
+
+/models
+
+# private setting and output
+/config_private
