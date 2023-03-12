@@ -1,6 +1,6 @@
 # stable diffusion tactical reload
 
-This script allows you to reload the arguments at runtime.
+This script allows you to reload the arguments at runtime using diffuser API. 
 
 ### generate.py
 
