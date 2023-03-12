@@ -17,3 +17,12 @@ py ./generate.py --model_path "XpucT/Deliberate" --prompt_file_path "./config/pr
 | dimension file path | txt file, 2 line int width then height |
 | num_inference_steps_file_path | txt file, single line integer |
 | dump_path | path of output folder, no trailing slash |
+| gallery | enable "gallery mode", using one value per line in the prompt for X amount of images |
+
+### gallery mode
+
+* Motivation: images not much variation without a change of prompt.
+
+* Changes to "regular mode": for each line in prompt, only 1 will be selected. You can do weighting by redundent option, it runs `random.choice()` behind.
+
+    * implement optional prompt by empty string options eg `apple, , , ` (p=0.25)

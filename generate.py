@@ -1,8 +1,7 @@
 import torch
 import time
 import datetime
-import os
-import json
+import random
 import argparse
 from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
 
@@ -25,6 +24,7 @@ if __name__ == "__main__":
     parser.add_argument("--dimension_file_path", required=True, type=str)
     parser.add_argument("--num_inference_steps_file_path", required=True, type=str)
     parser.add_argument("--dump_path", required=True, type=str)
+    parser.add_argument("--gallery", action="store_true")
     args = parser.parse_args()
     model_path = args.model_path
     prompt_file_path = args.prompt_file_path
@@ -33,6 +33,7 @@ if __name__ == "__main__":
     dimension_file_path = args.dimension_file_path
     num_inference_steps_file_path = args.num_inference_steps_file_path
     dump_path = args.dump_path
+    gallery = args.gallery
 
     # diffuser sd pipeline
     pipeline = StableDiffusionPipeline.from_pretrained(
@@ -50,33 +51,67 @@ if __name__ == "__main__":
     num_inference_steps = None
 
     prefix = None
-    counter = 0
+    counter = None
 
     while True:
         try:
-            # 1. if anything argument new, use new parameter
-            new_prompt = None
-            new_negative_prompt = None
-            new_guidance_scale = None
-            new_dimension = None
-            new_num_inference_steps = None
-            with open(prompt_file_path, 'r') as f:
-                new_prompt = ", ".join(f.read().splitlines())
-            with open(negative_prompt_file_path, 'r') as f:
-                new_negative_prompt = ", ".join(f.read().splitlines())
-            with open(guidance_scale_file_path, 'r') as f:
-                new_guidance_scale = int(f.readline())
-            with open(dimension_file_path, 'r') as f:
-                new_dimension = tuple(int(g) for g in f.read().splitlines())[0:2]
-            with open(num_inference_steps_file_path, 'r') as f:
-                new_num_inference_steps = int(f.readline())
-            if new_prompt != prompt or new_negative_prompt != negative_prompt or guidance_scale != new_guidance_scale or dimension != new_dimension or num_inference_steps != new_num_inference_steps:
-                prompt, negative_prompt, guidance_scale, dimension, num_inference_steps = new_prompt, new_negative_prompt, new_guidance_scale, new_dimension, new_num_inference_steps
+            should_use_new_prefix = False
+
+            # 1. trigger a reset: arg change or gallery
+            if gallery:
+                should_use_new_prefix = counter is None or counter == 20
+                if should_use_new_prefix:
+                    with open(prompt_file_path, 'r') as f:
+                        # for loop for debug purpose
+                        prompts = []
+                        for line in f.read().splitlines():
+                            choices = line.split(", ")
+                            choice = random.choice(choices)
+                            if choice.strip():
+                                prompts.append(choice)
+                            print(len(prompts), choice, choices)
+                        prompt = ", ".join(prompts)
+                    with open(negative_prompt_file_path, 'r') as f:
+                        negative_prompt = ", ".join(f.read().splitlines())
+                    with open(guidance_scale_file_path, 'r') as f:
+                        guidance_scale = int(f.readline())
+                    with open(dimension_file_path, 'r') as f:
+                        dimension = tuple(int(g) for g in f.read().splitlines())[0:2]
+                    with open(num_inference_steps_file_path, 'r') as f:
+                        num_inference_steps = int(f.readline())
+
+            else:
+                new_prompt = None
+                new_negative_prompt = None
+                new_guidance_scale = None
+                new_dimension = None
+                new_num_inference_steps = None
+                with open(prompt_file_path, 'r') as f:
+                    new_prompt = ", ".join(f.read().splitlines())
+                with open(negative_prompt_file_path, 'r') as f:
+                    new_negative_prompt = ", ".join(f.read().splitlines())
+                with open(guidance_scale_file_path, 'r') as f:
+                    new_guidance_scale = int(f.readline())
+                with open(dimension_file_path, 'r') as f:
+                    new_dimension = tuple(int(g) for g in f.read().splitlines())[0:2]
+                with open(num_inference_steps_file_path, 'r') as f:
+                    new_num_inference_steps = int(f.readline())
+
+                should_use_new_prefix = new_prompt != prompt or new_negative_prompt != negative_prompt or guidance_scale != new_guidance_scale or dimension != new_dimension or num_inference_steps != new_num_inference_steps
+                if should_use_new_prefix: 
+                    prompt = new_prompt
+                    negative_prompt = new_negative_prompt
+                    guidance_scale = new_guidance_scale
+                    dimension = new_dimension
+                    num_inference_steps = new_num_inference_steps
+
+            if should_use_new_prefix:
                 prefix = datetime.datetime.now().strftime("h_%Y%m%d_%H%M%S")
                 counter = 0
 
-            # 2. contruct path
             counter += 1
+
+            # 2. contruct path
             path = f"{dump_path}/{prefix}_{counter}.png"
             print(path)
 
@@ -91,8 +126,8 @@ if __name__ == "__main__":
             ).images[0]
 
             # save the image in 2x resolution
-            image.save(path)
-
+            image.resize((dimension[0]*2, dimension[1]*2)).save(path)
+            
         except Exception as ex:
             # ignore
             print(ex)
