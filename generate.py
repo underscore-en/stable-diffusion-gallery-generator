@@ -40,6 +40,8 @@ if __name__ == "__main__":
         torch_dtype=TORCH_DTYPE,
     ).to('cuda:0')
     pipeline.scheduler = SCHEDULER.from_config(pipeline.scheduler.config)
+    pipeline.enable_xformers_memory_efficient_attention()
+    pipeline.enable_model_cpu_offload()
 
     prompt = None
     negative_prompt = None
@@ -65,7 +67,7 @@ if __name__ == "__main__":
             with open(guidance_scale_file_path, 'r') as f:
                 new_guidance_scale = int(f.readline())
             with open(dimension_file_path, 'r') as f:
-                new_dimension = int(f.readline())
+                new_dimension = tuple(int(g) for g in f.read().splitlines())[0:2]
             with open(num_inference_steps_file_path, 'r') as f:
                 new_num_inference_steps = int(f.readline())
             if new_prompt != prompt or new_negative_prompt != negative_prompt or guidance_scale != new_guidance_scale or dimension != new_dimension or num_inference_steps != new_num_inference_steps:
@@ -83,13 +85,13 @@ if __name__ == "__main__":
                 prompt,
                 negative_prompt=negative_prompt,
                 guidance_scale=guidance_scale,
-                width=dimension,
-                height=dimension,
+                width=dimension[0],
+                height=dimension[1],
                 num_inference_steps=num_inference_steps,
             ).images[0]
 
             # save the image in 2x resolution
-            image.resize((dimension*2, dimension*2)).save(path)
+            image.save(path)
 
         except Exception as ex:
             # ignore

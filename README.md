@@ -14,6 +14,6 @@ py ./generate.py --model_path "XpucT/Deliberate" --prompt_file_path "./config/pr
 | prompt file path | txt file, can be multiline that will be joined by comma |
 | negative prompt file path | txt file, can be multiline that will be joined by comma |
 | guidance scale file path | txt file, single line integer |
-| dimension file path | txt file, single line integer |
+| dimension file path | txt file, 2 line int width then height |
 | num_inference_steps_file_path | txt file, single line integer |
 | dump_path | path of output folder, no trailing slash |
