@@ -15,7 +15,11 @@ https://huggingface.co/docs/diffusers/v0.14.0/en/api/pipelines/stable_diffusion/
 # consts
 SCHEDULER = DPMSolverMultistepScheduler
 TORCH_DTYPE = torch.float16
-DEFAULT_GALLERY_SIZE = 5
+DEFAULT_GALLERY_SIZE = 500
+
+DIMENSION = (512, 512)
+GUIDANCE_SCALE = 4
+NUM_INFERENCE_STEPS = 25
 
 
 def main():
@@ -24,21 +28,14 @@ def main():
     parser.add_argument("--model_path", required=True, type=str)
     parser.add_argument("--prompt_file_path", required=True, type=str)
     parser.add_argument("--negative_prompt_file_path", required=True, type=str)
-    parser.add_argument("--guidance_scale_file_path", required=True, type=str)
-    parser.add_argument("--dimension_file_path", required=True, type=str)
-    parser.add_argument("--num_inference_steps_file_path",
-                        required=True, type=str)
-    parser.add_argument("--dump_path", required=True, type=str)
+    parser.add_argument("--gallery_dump_path", required=True, type=str)
     parser.add_argument("--job_file_path", required=True, type=str)
     args = parser.parse_args()
 
     model_path = args.model_path
     prompt_file_path = args.prompt_file_path
     negative_prompt_file_path = args.negative_prompt_file_path
-    guidance_scale_file_path = args.guidance_scale_file_path
-    dimension_file_path = args.dimension_file_path
-    num_inference_steps_file_path = args.num_inference_steps_file_path
-    dump_path = args.dump_path
+    gallery_dump_path = args.gallery_dump_path
     job_file_path = args.job_file_path
 
     # diffuser sd pipeline
@@ -46,6 +43,7 @@ def main():
         model_path,
         torch_dtype=TORCH_DTYPE,
     ).to('cuda:0')
+
     # use another scheduler (there is a default)
     pipeline.scheduler = SCHEDULER.from_config(pipeline.scheduler.config)
     # reduce memory usage
@@ -53,29 +51,31 @@ def main():
     pipeline.enable_model_cpu_offload()
 
     # job loop
-    line_ptr = 0
+    job_ptr = 0
     while True:
         # read the line
         with open(job_file_path, "r") as f:
-            lines = f.read().splitlines()
+            csv_lines = f.read().splitlines()
         try:
             # parse the job file
             """
             job csv file in the following format
             folder_name, count
             """
-            first_line = lines[line_ptr]
-            folder_name, gallery_size = first_line.split(", ")
+            first_line = csv_lines[job_ptr]
+            folder_name, _gallery_size = first_line.split(", ")
+            gallery_size = int(_gallery_size)
         except Exception as e:
             print_exc()
             folder_name, gallery_size = uuid4().hex, DEFAULT_GALLERY_SIZE
-        line_ptr += 1
+        job_ptr += 1
         print(f"executing job {folder_name} ({gallery_size})")
 
         # clear or create the file
-        gallery_folder_path = os.path.join(dump_path, folder_name)
+        gallery_folder_path = os.path.join(gallery_dump_path, folder_name)
         if os.path.exists(gallery_folder_path):
-            os.unlink(gallery_folder_path)
+            for file in os.listdir(gallery_folder_path):
+                os.remove(os.path.join(gallery_folder_path, file))
         else:
             os.mkdir(gallery_folder_path)
 
@@ -91,19 +91,17 @@ def main():
             prompt = ", ".join(prompts)
         with open(negative_prompt_file_path, 'r') as f:
             negative_prompt = ", ".join(f.read().splitlines())
-        with open(guidance_scale_file_path, 'r') as f:
-            guidance_scale = int(f.readline())
-        with open(dimension_file_path, 'r') as f:
-            dimension = tuple(int(g)
-                              for g in f.read().splitlines())[0:2]
-        with open(num_inference_steps_file_path, 'r') as f:
-            num_inference_steps = int(f.readline())
+
+        guidance_scale = GUIDANCE_SCALE
+        dimension = DIMENSION
+        num_inference_steps = NUM_INFERENCE_STEPS
 
         # image loop
         for image_count in range(gallery_size):
             try:
                 # 2. contruct path
                 image_path = f"{gallery_folder_path}/{image_count}.png"
+                print(image_path)
 
                 # 3. inference
                 image = pipeline(
