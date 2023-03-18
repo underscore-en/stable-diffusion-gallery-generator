@@ -1,6 +1,7 @@
 import torch
 import time
 import random
+import threading
 import argparse
 import os
 from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
@@ -17,7 +18,7 @@ SCHEDULER = DPMSolverMultistepScheduler
 TORCH_DTYPE = torch.float16
 DEFAULT_GALLERY_SIZE = 500
 
-DIMENSION = (512, 512)
+DIMENSION = (600, 512)
 GUIDANCE_SCALE = 4
 NUM_INFERENCE_STEPS = 25
 
@@ -113,9 +114,10 @@ def main():
                     num_inference_steps=num_inference_steps,
                 ).images[0]
 
-                # # save the image in 2x resolution
-                # image = image.resize((dimension[0]*2, dimension[1]*2))
-                image.save(image_path)
+                print()
+                def task():
+                    image.save(image_path)
+                threading.Thread(target=task).start()
 
             except Exception as ex:
                 # ignore
