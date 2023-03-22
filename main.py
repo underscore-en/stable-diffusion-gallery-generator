@@ -4,9 +4,10 @@ import random
 import threading
 import argparse
 import os
-from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
+from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler, StableDiffusionImg2ImgPipeline, StableDiffusionUpscalePipeline
 from traceback import print_exc
 from uuid import uuid4
+from PIL import Image
 
 """
 relevant documentations
@@ -16,11 +17,13 @@ https://huggingface.co/docs/diffusers/v0.14.0/en/api/pipelines/stable_diffusion/
 # consts
 SCHEDULER = DPMSolverMultistepScheduler
 TORCH_DTYPE = torch.float16
-DEFAULT_GALLERY_SIZE = 500
+DEFAULT_GALLERY_SIZE = 5
 
-DIMENSION = (600, 512)
+DIMENSION = (512, 512)
 GUIDANCE_SCALE = 4
 NUM_INFERENCE_STEPS = 25
+
+I2I_STRENGTH = 0.7
 
 
 def main():
@@ -39,17 +42,23 @@ def main():
     gallery_dump_path = args.gallery_dump_path
     job_file_path = args.job_file_path
 
-    # diffuser sd pipeline
-    pipeline = StableDiffusionPipeline.from_pretrained(
-        model_path,
-        torch_dtype=TORCH_DTYPE,
+    # t2i pipeline
+    pipeline_t2i = StableDiffusionPipeline.from_pretrained(
+    model_path,
+    torch_dtype=TORCH_DTYPE,
     ).to('cuda:0')
+    pipeline_t2i.scheduler = SCHEDULER.from_config(pipeline_t2i.scheduler.config)
+    pipeline_t2i.enable_xformers_memory_efficient_attention()
+    pipeline_t2i.enable_model_cpu_offload()
 
-    # use another scheduler (there is a default)
-    pipeline.scheduler = SCHEDULER.from_config(pipeline.scheduler.config)
-    # reduce memory usage
-    pipeline.enable_xformers_memory_efficient_attention()
-    pipeline.enable_model_cpu_offload()
+    # # i2i pipeline
+    pipeline_i2i: StableDiffusionImg2ImgPipeline = StableDiffusionImg2ImgPipeline.from_pretrained(
+        model_path,
+        torch_dtype=TORCH_DTYPE
+    ).to("cuda:0")
+    pipeline_i2i.scheduler = SCHEDULER.from_config(pipeline_t2i.scheduler.config)
+    pipeline_i2i.enable_xformers_memory_efficient_attention()
+    pipeline_i2i.enable_model_cpu_offload()
 
     # job loop
     job_ptr = 0
@@ -93,31 +102,35 @@ def main():
         with open(negative_prompt_file_path, 'r') as f:
             negative_prompt = ", ".join(f.read().splitlines())
 
-        guidance_scale = GUIDANCE_SCALE
-        dimension = DIMENSION
-        num_inference_steps = NUM_INFERENCE_STEPS
-
         # image loop
         for image_count in range(gallery_size):
             try:
                 # 2. contruct path
-                image_path = f"{gallery_folder_path}/{image_count}.png"
+                image_path = f"{gallery_folder_path}/{image_count+1}.png"
                 print(image_path)
 
-                # 3. inference
-                image = pipeline(
+                """
+                3. inference
+                From experience, to generate directly with 1024*1024 will have too much details.
+                """
+                image = pipeline_t2i(
                     prompt,
                     negative_prompt=negative_prompt,
-                    guidance_scale=guidance_scale,
-                    width=dimension[0],
-                    height=dimension[1],
-                    num_inference_steps=num_inference_steps,
+                    guidance_scale=GUIDANCE_SCALE,
+                    width=DIMENSION[0],
+                    height=DIMENSION[1],
+                    num_inference_steps=NUM_INFERENCE_STEPS,
                 ).images[0]
 
-                print()
-                def task():
-                    image.save(image_path)
-                threading.Thread(target=task).start()
+                # 4. resize
+                image = pipeline_i2i(
+                    prompt,
+                    image=image,
+                    negative_prompt=negative_prompt,
+                    guidance_scale=GUIDANCE_SCALE,
+                ).images[0]
+
+                image.save(image_path)
 
             except Exception as ex:
                 # ignore
