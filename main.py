@@ -17,7 +17,7 @@ https://huggingface.co/docs/diffusers/v0.14.0/en/api/pipelines/stable_diffusion/
 # consts
 SCHEDULER = DPMSolverMultistepScheduler
 TORCH_DTYPE = torch.float16
-DEFAULT_GALLERY_SIZE = 5
+DEFAULT_GALLERY_SIZE = 100
 
 DIMENSION = (512, 512)
 GUIDANCE_SCALE = 4
@@ -44,10 +44,11 @@ def main():
 
     # t2i pipeline
     pipeline_t2i = StableDiffusionPipeline.from_pretrained(
-    model_path,
-    torch_dtype=TORCH_DTYPE,
+        model_path,
+        torch_dtype=TORCH_DTYPE,
     ).to('cuda:0')
-    pipeline_t2i.scheduler = SCHEDULER.from_config(pipeline_t2i.scheduler.config)
+    pipeline_t2i.scheduler = SCHEDULER.from_config(
+        pipeline_t2i.scheduler.config)
     pipeline_t2i.enable_xformers_memory_efficient_attention()
     pipeline_t2i.enable_model_cpu_offload()
 
@@ -56,7 +57,8 @@ def main():
         model_path,
         torch_dtype=TORCH_DTYPE
     ).to("cuda:0")
-    pipeline_i2i.scheduler = SCHEDULER.from_config(pipeline_t2i.scheduler.config)
+    pipeline_i2i.scheduler = SCHEDULER.from_config(
+        pipeline_t2i.scheduler.config)
     pipeline_i2i.enable_xformers_memory_efficient_attention()
     pipeline_i2i.enable_model_cpu_offload()
 
@@ -117,15 +119,17 @@ def main():
                     prompt,
                     negative_prompt=negative_prompt,
                     guidance_scale=GUIDANCE_SCALE,
-                    width=DIMENSION[0],
-                    height=DIMENSION[1],
                     num_inference_steps=NUM_INFERENCE_STEPS,
                 ).images[0]
 
-                # 4. resize
+                """
+                4. upscale
+                https://huggingface.co/docs/diffusers/api/pipelines/stable_diffusion/img2img
+
+                """
                 image = pipeline_i2i(
                     prompt,
-                    image=image,
+                    image=image.resize((DIMENSION[0]*2, DIMENSION[1]*2)),
                     negative_prompt=negative_prompt,
                     guidance_scale=GUIDANCE_SCALE,
                 ).images[0]
