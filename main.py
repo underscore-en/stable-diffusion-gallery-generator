@@ -1,13 +1,13 @@
 import torch
 import time
 import random
-import threading
 import argparse
 import os
+from math import floor
 from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler, StableDiffusionImg2ImgPipeline, StableDiffusionUpscalePipeline
 from traceback import print_exc
 from uuid import uuid4
-from PIL import Image
+from lpw_pipeline import StableDiffusionLongPromptWeightingPipeline
 
 """
 relevant documentations
@@ -17,12 +17,12 @@ https://huggingface.co/docs/diffusers/v0.14.0/en/api/pipelines/stable_diffusion/
 # consts
 SCHEDULER = DPMSolverMultistepScheduler
 TORCH_DTYPE = torch.float16
-DEFAULT_GALLERY_SIZE = 100
+DEFAULT_GALLERY_SIZE = 20
 
 DIMENSION = (512, 512)
 GUIDANCE_SCALE = 4
-NUM_INFERENCE_STEPS = 25
-
+NUM_INFERENCE_STEPS = 35
+UPSCALE_FACTOR = 2
 I2I_STRENGTH = 0.7
 
 
@@ -34,6 +34,7 @@ def main():
     parser.add_argument("--negative_prompt_file_path", required=True, type=str)
     parser.add_argument("--gallery_dump_path", required=True, type=str)
     parser.add_argument("--job_file_path", required=True, type=str)
+    parser.add_argument("--fast", action="store_true")
     args = parser.parse_args()
 
     model_path = args.model_path
@@ -41,26 +42,28 @@ def main():
     negative_prompt_file_path = args.negative_prompt_file_path
     gallery_dump_path = args.gallery_dump_path
     job_file_path = args.job_file_path
+    fast = args.fast
 
     # t2i pipeline
-    pipeline_t2i = StableDiffusionPipeline.from_pretrained(
+    pipeline_t2i = StableDiffusionLongPromptWeightingPipeline.from_pretrained(
         model_path,
         torch_dtype=TORCH_DTYPE,
-    ).to('cuda:0')
+    ).to('cuda')
     pipeline_t2i.scheduler = SCHEDULER.from_config(
         pipeline_t2i.scheduler.config)
     pipeline_t2i.enable_xformers_memory_efficient_attention()
-    pipeline_t2i.enable_model_cpu_offload()
 
-    # # i2i pipeline
-    pipeline_i2i: StableDiffusionImg2ImgPipeline = StableDiffusionImg2ImgPipeline.from_pretrained(
-        model_path,
-        torch_dtype=TORCH_DTYPE
-    ).to("cuda:0")
-    pipeline_i2i.scheduler = SCHEDULER.from_config(
-        pipeline_t2i.scheduler.config)
-    pipeline_i2i.enable_xformers_memory_efficient_attention()
-    pipeline_i2i.enable_model_cpu_offload()
+    # i2i pipeline
+    pipeline_i2i = None
+    if not fast:
+        pipeline_i2i: StableDiffusionImg2ImgPipeline = StableDiffusionImg2ImgPipeline.from_pretrained(
+            model_path,
+            torch_dtype=TORCH_DTYPE
+        ).to("cuda:0")
+        pipeline_i2i.scheduler = SCHEDULER.from_config(
+            pipeline_t2i.scheduler.config)
+        pipeline_i2i.enable_xformers_memory_efficient_attention()
+        pipeline_i2i.enable_model_cpu_offload()
 
     # job loop
     job_ptr = 0
@@ -127,12 +130,21 @@ def main():
                 https://huggingface.co/docs/diffusers/api/pipelines/stable_diffusion/img2img
 
                 """
-                image = pipeline_i2i(
-                    prompt,
-                    image=image.resize((DIMENSION[0]*2, DIMENSION[1]*2)),
-                    negative_prompt=negative_prompt,
-                    guidance_scale=GUIDANCE_SCALE,
-                ).images[0]
+
+                image = image.resize(
+                    (
+                        8 * floor(DIMENSION[0]*UPSCALE_FACTOR/8),
+                        8 * floor(DIMENSION[1]*UPSCALE_FACTOR/8),
+                    )
+                )
+
+                if not fast:
+                    image = pipeline_i2i(
+                        prompt,
+                        image=image,
+                        negative_prompt=negative_prompt,
+                        guidance_scale=GUIDANCE_SCALE,
+                    ).images[0]
 
                 image.save(image_path)
 

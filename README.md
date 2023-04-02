@@ -6,16 +6,20 @@ Generate a variety of galleries with stable diffusion.
 
 This script runs the gallery generation logic.
 
+Args for the script is at follows, I'm too lazy to maintain an everchanging `.md` table.
+
 ```python
 parser.add_argument("--model_path", required=True, type=str)
 parser.add_argument("--prompt_file_path", required=True, type=str)
 parser.add_argument("--negative_prompt_file_path", required=True, type=str)
 parser.add_argument("--gallery_dump_path", required=True, type=str)
 parser.add_argument("--job_file_path", required=True, type=str)
+parser.add_argument("--fast", action="store_true")
 ```
 
 ```bash
-py ./main.py --model_path "C:\Users\Private\Desktop\stable_diffusion\models\basemodel\cg" --prompt_file_path ".\config_private\prompt.txt" --negative_prompt_file_path ".\config_private\negative_prompt.txt" --gallery_dump_path "C:\Users\Private\Desktop\fh\gallery" --job_file_path "./config_private/jobs.txt"
+py ./main.py --model_path "C:\Users\Private\Desktop\stable_diffusion\models\basemodel\a" --prompt_file_path ".\config_private\prompt.txt" --negative_prompt_file_path ".\config_private\negative_prompt.txt" --gallery_dump_path "C:\Users\Private\Desktop\fh\gallery" --job_file_path "./config_private/jobs.txt"
+py ./main.py --model_path "C:\Users\Private\Desktop\stable_diffusion\models\composed\a_ct2" --prompt_file_path ".\config_private\prompt.txt" --negative_prompt_file_path ".\config_private\negative_prompt.txt" --gallery_dump_path "C:\Users\Private\Desktop\fh\gallery" --job_file_path "./config_private/jobs.txt"
 ```
 
 #### Utility Script './scripts/convert_original_stable_diffusion_to_diffusers.py`
@@ -23,12 +27,16 @@ py ./main.py --model_path "C:\Users\Private\Desktop\stable_diffusion\models\base
 This script is copied from diffuser repository as a utility to convert safetensor files from civitai to diffuser format.
 
 ```bash
-py .\scripts\convert_original_stable_diffusion_to_diffusers.py --checkpoint_path "C:\Users\Private\Desktop\stable_diffusion\models\basemodel\abyssorangemix2_Hard.safetensors" --dump_path "C:\Users\Private\Desktop\stable_diffusion\models\basemodel\aom2" --from_safetensors --extract_ema
+py .\scripts\convert_original_stable_diffusion_to_diffusers.py --checkpoint_path "C:\Users\Private\Desktop\stable_diffusion\models\basemodel\a.safetensors" --dump_path "C:\Users\Private\Desktop\stable_diffusion\models\basemodel\a" --from_safetensors
 ```
 
-Argument `extract_ema` may not be applicable for all models.
+#### Lora + Base Model Composition `./scripts/convert_lora_safetensor_to_diffuser.py`
 
-## Terminologies
+```bash
+py .\scripts\convert_lora_safetensor_to_diffuser.py --base_model_path "C:\Users\Private\Desktop\stable_diffusion\models\basemodel\a" --checkpoint_path "C:\Users\Private\Desktop\stable_diffusion\models\loras\ct_lora.safetensors" --alpha 0.2 --dump_path "C:\Users\Private\Desktop\stable_diffusion\models\composed\a_ct2"
+```
+
+## TODO: Terminologies
 
 ### vae
 
