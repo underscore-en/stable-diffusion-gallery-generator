@@ -137,6 +137,11 @@ def main():
                 if upscale:
                     raise Exception("Not implemented.")
 
+                """
+                5. save
+                """
+                image.save(image_path)
+
             except Exception as ex:
                 # ignore
                 print(ex)
