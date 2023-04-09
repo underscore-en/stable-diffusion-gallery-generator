@@ -4,8 +4,9 @@ import random
 import argparse
 import os
 from math import floor
-from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler, StableDiffusionImg2ImgPipeline, StableDiffusionUpscalePipeline
+from diffusers import DPMSolverMultistepScheduler, StableDiffusionImg2ImgPipeline, StableDiffusionUpscalePipeline, EulerDiscreteScheduler
 from traceback import print_exc
+from typing import Tuple
 from uuid import uuid4
 from lpw_pipeline import StableDiffusionLongPromptWeightingPipeline
 
@@ -14,14 +15,23 @@ relevant documentations
 https://huggingface.co/docs/diffusers/v0.14.0/en/api/pipelines/stable_diffusion/text2img#diffusers.StableDiffusionPipeline
 """
 
+
+def toValidDimension(dimension: Tuple[int, int]) -> Tuple[int, int]:
+    """
+    returns the dimension tuple in valid format
+    validity is defined by the acceptable dimension in diffuser api, which are multiples of 8.
+    """
+    return tuple(8*floor(d/8) for d in dimension)
+
+
 # consts
 SCHEDULER = DPMSolverMultistepScheduler
 TORCH_DTYPE = torch.float16
 DEFAULT_GALLERY_SIZE = 20
 
-DIMENSION = (512, 512)
-GUIDANCE_SCALE = 4
-NUM_INFERENCE_STEPS = 35
+DIMENSION = toValidDimension((512, 512))
+# DIMENSION = toValidDimension((720, 720))
+NUM_INFERENCE_STEPS = 25
 UPSCALE_FACTOR = 2
 I2I_STRENGTH = 0.7
 
@@ -34,7 +44,7 @@ def main():
     parser.add_argument("--negative_prompt_file_path", required=True, type=str)
     parser.add_argument("--gallery_dump_path", required=True, type=str)
     parser.add_argument("--job_file_path", required=True, type=str)
-    parser.add_argument("--fast", action="store_true")
+    parser.add_argument("--upscale", action="store_true")
     args = parser.parse_args()
 
     model_path = args.model_path
@@ -42,28 +52,22 @@ def main():
     negative_prompt_file_path = args.negative_prompt_file_path
     gallery_dump_path = args.gallery_dump_path
     job_file_path = args.job_file_path
-    fast = args.fast
+    upscale = args.upscale
 
     # t2i pipeline
-    pipeline_t2i = StableDiffusionLongPromptWeightingPipeline.from_pretrained(
+    pipeline_t2i: StableDiffusionLongPromptWeightingPipeline = StableDiffusionLongPromptWeightingPipeline.from_pretrained(
         model_path,
         torch_dtype=TORCH_DTYPE,
+
     ).to('cuda')
     pipeline_t2i.scheduler = SCHEDULER.from_config(
         pipeline_t2i.scheduler.config)
     pipeline_t2i.enable_xformers_memory_efficient_attention()
 
-    # i2i pipeline
-    pipeline_i2i = None
-    if not fast:
-        pipeline_i2i: StableDiffusionImg2ImgPipeline = StableDiffusionImg2ImgPipeline.from_pretrained(
-            model_path,
-            torch_dtype=TORCH_DTYPE
-        ).to("cuda:0")
-        pipeline_i2i.scheduler = SCHEDULER.from_config(
-            pipeline_t2i.scheduler.config)
-        pipeline_i2i.enable_xformers_memory_efficient_attention()
-        pipeline_i2i.enable_model_cpu_offload()
+    # upscale pipeline
+    pipeline_us = None
+    if upscale:
+        raise Exception("Not Implemented.")
 
     # job loop
     job_ptr = 0
@@ -96,14 +100,10 @@ def main():
 
         # inference arguments
         with open(prompt_file_path, 'r') as f:
-            prompts = []
-            for line in f.read().splitlines():
-                choices = line.split(", ")
-                choice = random.choice(choices)
-                if choice.strip():
-                    prompts.append(choice)
-                print(len(prompts), choice, choices)
-            prompt = ", ".join(prompts)
+            GUIDANCE_SCALE, *lines = f.read().splitlines()
+            GUIDANCE_SCALE = int(GUIDANCE_SCALE)
+            prompt = ", ".join(lines)
+            print(prompt)
         with open(negative_prompt_file_path, 'r') as f:
             negative_prompt = ", ".join(f.read().splitlines())
 
@@ -120,33 +120,22 @@ def main():
                 """
                 image = pipeline_t2i(
                     prompt,
+                    width=DIMENSION[0],
+                    height=DIMENSION[1],
                     negative_prompt=negative_prompt,
                     guidance_scale=GUIDANCE_SCALE,
                     num_inference_steps=NUM_INFERENCE_STEPS,
+                    max_embeddings_multiples=200
                 ).images[0]
 
+                image = image.resize(toValidDimension(
+                    tuple(UPSCALE_FACTOR * d for d in DIMENSION))
+                )
                 """
                 4. upscale
-                https://huggingface.co/docs/diffusers/api/pipelines/stable_diffusion/img2img
-
                 """
-
-                image = image.resize(
-                    (
-                        8 * floor(DIMENSION[0]*UPSCALE_FACTOR/8),
-                        8 * floor(DIMENSION[1]*UPSCALE_FACTOR/8),
-                    )
-                )
-
-                if not fast:
-                    image = pipeline_i2i(
-                        prompt,
-                        image=image,
-                        negative_prompt=negative_prompt,
-                        guidance_scale=GUIDANCE_SCALE,
-                    ).images[0]
-
-                image.save(image_path)
+                if upscale:
+                    raise Exception("Not implemented.")
 
             except Exception as ex:
                 # ignore
