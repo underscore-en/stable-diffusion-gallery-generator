@@ -11,7 +11,6 @@ This script runs the gallery generation logic.
     parser.add_argument("--prompt_file_path", required=True, type=str)
     parser.add_argument("--negative_prompt_file_path", required=True, type=str)
     parser.add_argument("--gallery_dump_path", required=True, type=str)
-    parser.add_argument("--job_file_path", required=True, type=str)
     parser.add_argument("--upscale", action="store_true")
 ```
 
