@@ -15,9 +15,8 @@ This script runs the gallery generation logic.
 ```
 
 ```bash
-py ./main.py --model_path "C:\Users\Private\Desktop\stable_diffusion\models\basemodel\p" --prompt_file_path ".\config_private\prompt.txt" --negative_prompt_file_path ".\config_private\negative_prompt.txt" --gallery_dump_path "C:\Users\Private\Desktop\fh\gallery" --job_file_path "./config_private/jobs.txt"
-py ./main.py --model_path "C:\Users\Private\Desktop\stable_diffusion\models\composed\a_ct2" --prompt_file_path ".\config_private\prompt.txt" --negative_prompt_file_path ".\config_private\negative_prompt.txt" --gallery_dump_path "C:\Users\Private\Desktop\fh\gallery" --job_file_path "./config_private/jobs.txt"
-py ./main.py --model_path "C:\Users\Private\Desktop\stable_diffusion\models\composed\p_ip" --prompt_file_path ".\config_private\prompt.txt" --negative_prompt_file_path ".\config_private\negative_prompt.txt" --gallery_dump_path "C:\Users\Private\Desktop\fh\gallery" --job_file_path "./config_private/jobs.txt"
+py ./main.py --model_path "C:\Users\Private\Desktop\stable_diffusion\models\basemodel\p" --prompt_file_path ".\config_private\prompt.txt" --negative_prompt_file_path ".\config_private\negative_prompt.txt" --gallery_dump_path "C:\Users\Private\Desktop\fh\gallery"
+py ./main.py --model_path "C:\Users\Private\Desktop\stable_diffusion\models\composed\a_ct2" --prompt_file_path ".\config_private\prompt.txt" --negative_prompt_file_path ".\config_private\negative_prompt.txt" --gallery_dump_path "C:\Users\Private\Desktop\fh\gallery"
 ```
 
 #### Utility Script './scripts/convert_original_stable_diffusion_to_diffusers.py`

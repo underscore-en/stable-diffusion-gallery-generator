@@ -1,11 +1,9 @@
 import torch
 import time
-import random
 import argparse
 import os
 from math import floor
-from diffusers import DPMSolverMultistepScheduler, StableDiffusionImg2ImgPipeline, StableDiffusionUpscalePipeline, EulerDiscreteScheduler
-from traceback import print_exc
+from diffusers import DPMSolverMultistepScheduler, StableDiffusionUpscalePipeline
 from typing import Tuple
 from uuid import uuid4
 from lpw_pipeline import StableDiffusionLongPromptWeightingPipeline
@@ -27,9 +25,9 @@ def toValidDimension(dimension: Tuple[int, int]) -> Tuple[int, int]:
 # consts
 SCHEDULER = DPMSolverMultistepScheduler
 TORCH_DTYPE = torch.float16
-DEFAULT_GALLERY_SIZE = 20
 
 DIMENSION = toValidDimension((512, 512))
+# DIMENSION = toValidDimension((640, 640))
 NUM_INFERENCE_STEPS = 25
 UPSCALE_FACTOR = 2
 I2I_STRENGTH = 0.7
@@ -66,7 +64,10 @@ def main():
     if upscale:
         pipeline_us = StableDiffusionUpscalePipeline.from_pretrained(
             "stabilityai/stable-diffusion-x4-upscaler", revision="fp16", torch_dtype=torch.float16
-        )
+        ).to('cuda')
+        pipeline_us.enable_attention_slicing()
+        pipeline_us.enable_xformers_memory_efficient_attention()
+        pipeline_us.enable_sequential_cpu_offload()
 
     # job loop
     folder_name = None
@@ -79,10 +80,12 @@ def main():
             gs = int(_gs)
             p = ", ".join(l)
             if p != prompt or guidance_scale != gs:
-                prompt = p
-                guidance_scale = gs
                 folder_name = uuid4().hex
-                gallery_folder_path = os.path.join(gallery_dump_path, folder_name)
+                guidance_scale = gs
+                prompt = p
+                counter = 0
+                gallery_folder_path = os.path.join(
+                    gallery_dump_path, folder_name)
                 os.mkdir(gallery_folder_path)
                 print(prompt)
 
@@ -109,17 +112,24 @@ def main():
                 max_embeddings_multiples=200
             ).images[0]
 
-            image = image.resize(toValidDimension(
-                tuple(UPSCALE_FACTOR * d for d in DIMENSION))
-            )
+            # image = image.resize(toValidDimension(
+            #     tuple(UPSCALE_FACTOR * d for d in DIMENSION))
+            # )
             image.save(image_path)
 
             """
             4. upscale
             """
             if upscale:
-                image = pipeline_us(prompt=prompt, image=image).images[0]
+                image = pipeline_us(
+                    prompt="",
+                    negative_prompt=negative_prompt,
+                    image=image,
+                    guidance_scale=guidance_scale
+                ).images[0]
                 image.save(image_path)
+
+            counter += 1
 
         except Exception as ex:
             # ignore
