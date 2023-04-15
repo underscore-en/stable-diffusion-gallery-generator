@@ -3,7 +3,7 @@ import time
 import argparse
 import os
 from math import floor
-from diffusers import DPMSolverMultistepScheduler, StableDiffusionUpscalePipeline
+from diffusers import DPMSolverMultistepScheduler, StableDiffusionUpscalePipeline, StableDiffusionLatentUpscalePipeline
 from typing import Tuple
 from uuid import uuid4
 from lpw_pipeline import StableDiffusionLongPromptWeightingPipeline
@@ -28,7 +28,7 @@ TORCH_DTYPE = torch.float16
 
 DIMENSION = toValidDimension((512, 512))
 # DIMENSION = toValidDimension((640, 640))
-NUM_INFERENCE_STEPS = 25
+NUM_INFERENCE_STEPS = 40
 UPSCALE_FACTOR = 2
 I2I_STRENGTH = 0.7
 
@@ -62,8 +62,8 @@ def main():
     # upscale pipeline
     pipeline_us = None
     if upscale:
-        pipeline_us = StableDiffusionUpscalePipeline.from_pretrained(
-            "stabilityai/stable-diffusion-x4-upscaler", revision="fp16", torch_dtype=torch.float16
+        pipeline_us = StableDiffusionLatentUpscalePipeline.from_pretrained(
+            "stabilityai/sd-x2-latent-upscaler",  torch_dtype=torch.float16
         ).to('cuda')
         pipeline_us.enable_attention_slicing()
         pipeline_us.enable_xformers_memory_efficient_attention()
@@ -109,12 +109,12 @@ def main():
                 negative_prompt=negative_prompt,
                 guidance_scale=guidance_scale,
                 num_inference_steps=NUM_INFERENCE_STEPS,
-                max_embeddings_multiples=200
+                max_embeddings_multiples=200,
             ).images[0]
 
-            # image = image.resize(toValidDimension(
-            #     tuple(UPSCALE_FACTOR * d for d in DIMENSION))
-            # )
+            image = image.resize(toValidDimension(
+                tuple(UPSCALE_FACTOR * d for d in DIMENSION))
+            )
             image.save(image_path)
 
             """
@@ -122,7 +122,7 @@ def main():
             """
             if upscale:
                 image = pipeline_us(
-                    prompt="",
+                    prompt=prompt,
                     negative_prompt=negative_prompt,
                     image=image,
                     guidance_scale=guidance_scale
