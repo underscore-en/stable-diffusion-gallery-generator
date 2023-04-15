@@ -24,13 +24,13 @@ py ./main.py --model_path "C:\Users\Private\Desktop\stable_diffusion\models\comp
 This script is copied from diffuser repository as a utility to convert safetensor files from civitai to diffuser format.
 
 ```bash
-py .\scripts\convert_original_stable_diffusion_to_diffusers.py --checkpoint_path "C:\Users\Private\Desktop\stable_diffusion\models\basemodel\p.safetensors" --dump_path "C:\Users\Private\Desktop\stable_diffusion\models\basemodel\p" --from_safetensors
+py .\scripts\convert_original_stable_diffusion_to_diffusers.py --checkpoint_path "C:\Users\Private\Desktop\stable_diffusion\models\basemodel\c.safetensors" --dump_path "C:\Users\Private\Desktop\stable_diffusion\models\basemodel\c" --from_safetensors
 ```
 
 #### Lora + Base Model Composition `./scripts/convert_lora_safetensor_to_diffuser.py`
 
 ```bash
-py .\scripts\convert_lora_safetensor_to_diffuser.py --base_model_path "C:\Users\Private\Desktop\stable_diffusion\models\basemodel\a" --checkpoint_path "C:\Users\Private\Desktop\stable_diffusion\models\loras\ct_lora.safetensors" --alpha 0.2 --dump_path "C:\Users\Private\Desktop\stable_diffusion\models\composed\a_ct2"
+py .\scripts\convert_lora_safetensor_to_diffuser.py --base_model_path "C:\Users\Private\Desktop\stable_diffusion\models\basemodel\h" --checkpoint_path "C:\Users\Private\Desktop\stable_diffusion\models\loras\ct_lora.safetensors" --alpha 0.2 --dump_path "C:\Users\Private\Desktop\stable_diffusion\models\composed\h_ct2"
 py .\scripts\convert_lora_safetensor_to_diffuser.py --base_model_path "C:\Users\Private\Desktop\stable_diffusion\models\basemodel\p" --checkpoint_path "C:\Users\Private\Desktop\stable_diffusion\models\loras\ip_lora.safetensors" --alpha 0.7 --dump_path "C:\Users\Private\Desktop\stable_diffusion\models\composed\p_ip"
 ```
 

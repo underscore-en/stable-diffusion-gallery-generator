@@ -16,7 +16,9 @@
 
 import argparse
 
-from diffusers.pipelines.stable_diffusion.convert_from_ckpt import load_pipeline_from_original_stable_diffusion_ckpt
+import torch
+
+from diffusers.pipelines.stable_diffusion.convert_from_ckpt import download_from_original_stable_diffusion_ckpt
 
 
 if __name__ == "__main__":
@@ -123,9 +125,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--controlnet", action="store_true", default=None, help="Set flag if this is a controlnet checkpoint."
     )
+    parser.add_argument("--half", action="store_true", help="Save weights in half precision.")
     args = parser.parse_args()
 
-    pipe = load_pipeline_from_original_stable_diffusion_ckpt(
+    pipe = download_from_original_stable_diffusion_ckpt(
         checkpoint_path=args.checkpoint_path,
         original_config_file=args.original_config_file,
         image_size=args.image_size,
@@ -142,6 +145,9 @@ if __name__ == "__main__":
         clip_stats_path=args.clip_stats_path,
         controlnet=args.controlnet,
     )
+
+    if args.half:
+        pipe.to(torch_dtype=torch.float16)
 
     if args.controlnet:
         # only save the controlnet model
