@@ -3,7 +3,7 @@ import time
 import argparse
 import os
 from math import floor
-from diffusers import DPMSolverMultistepScheduler, StableDiffusionUpscalePipeline, StableDiffusionLatentUpscalePipeline
+from diffusers import DPMSolverMultistepScheduler, TextToVideoZeroPipeline, StableDiffusionUpscalePipeline, StableDiffusionLatentUpscalePipeline, EulerAncestralDiscreteScheduler
 from typing import Tuple
 from uuid import uuid4
 from lpw_pipeline import StableDiffusionLongPromptWeightingPipeline
@@ -23,14 +23,17 @@ def toValidDimension(dimension: Tuple[int, int]) -> Tuple[int, int]:
 
 
 # consts
-SCHEDULER = DPMSolverMultistepScheduler
+SCHEDULER = EulerAncestralDiscreteScheduler
+# SCHEDULER = DPMSolverMultistepScheduler
 TORCH_DTYPE = torch.float16
 
-DIMENSION = toValidDimension((512, 512))
-# DIMENSION = toValidDimension((640, 640))
-NUM_INFERENCE_STEPS = 40
 UPSCALE_FACTOR = 2
-I2I_STRENGTH = 0.7
+
+DIMENSION = toValidDimension((800, 800))
+DIMENSION = toValidDimension((1200, 800))
+DIMENSION = toValidDimension((800, 800))
+# DIMENSION = toValidDimension((800, 512))
+NUM_INFERENCE_STEPS = floor((30 * (DIMENSION[0] + DIMENSION[1]) / 1600 )**0.9)
 
 
 def main():
@@ -53,11 +56,9 @@ def main():
     pipeline_t2i: StableDiffusionLongPromptWeightingPipeline = StableDiffusionLongPromptWeightingPipeline.from_pretrained(
         model_path,
         torch_dtype=TORCH_DTYPE,
-
     ).to('cuda')
     pipeline_t2i.scheduler = SCHEDULER.from_config(
         pipeline_t2i.scheduler.config)
-    pipeline_t2i.enable_xformers_memory_efficient_attention()
 
     # upscale pipeline
     pipeline_us = None
