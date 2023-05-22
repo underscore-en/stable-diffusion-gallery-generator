@@ -2,6 +2,7 @@ import torch
 import time
 import argparse
 import os
+import math
 import random
 import itertools
 from math import floor
@@ -31,11 +32,14 @@ def inference_steps_of(d):
 consts
 """
 OVERNIGHT_BATCH_SIZE = 5
-DIMENSION_GENERATOR = lambda: random.choice([(800, 800), (1200, 800), (800, 1200)])
+DIMENSION_GENERATOR = lambda: random.choice([(800, 800), (800, 1200)])
 SCHEDULER = EulerAncestralDiscreteScheduler
 # SCHEDULER = DPMSolverMultistepScheduler
 TORCH_DTYPE = torch.float16
 UPSCALE_FACTOR = 2
+
+desired_inference_duration = 10
+num_inference_steps = 5 # self regulated
 
 def DYNAMIC_PARSE_STRATEGY(lines):
     guidance_scale = int(lines[0])
@@ -49,7 +53,7 @@ def OVERNIGHT_PARSE_STRATEGY(lines):
     use_buffer = False
     for line in lines[1:]:
         if line == "@":
-            if not use_buffer:
+            if use_buffer:
                 # flush
                 prompt_lines.append(random.choice(buffer))
 
@@ -61,19 +65,17 @@ def OVERNIGHT_PARSE_STRATEGY(lines):
 
     return guidance_scale, ", ".join(prompt_lines)
 
-def generate_batch(pipeline_t2i, dimension, prompt: str, negative_prompt: str, guidance_scale, gallery_dump_path: str, batch_size: int, output_prefix: str):
-    num_inference_steps = inference_steps_of(dimension)
 
-    # job loop
+def generate_batch(pipeline_t2i, dimension, prompt: str, negative_prompt: str, guidance_scale, gallery_dump_path: str, batch_size: int, output_prefix: str):
+    global num_inference_steps
+
     for count in range(batch_size):
         try:
-            # 2. contruct path
-            image_path = os.path.join(gallery_dump_path, f"{output_prefix}_{count}.png")
+            image_path = os.path.join(gallery_dump_path, f"{output_prefix}_{count+1}.png")
             print(image_path)
 
-            """
-            3. inference
-            """
+            # inference
+            time_start = time.time()
             image = pipeline_t2i(
                 prompt,
                 width=dimension[0],
@@ -83,9 +85,15 @@ def generate_batch(pipeline_t2i, dimension, prompt: str, negative_prompt: str, g
                 num_inference_steps=num_inference_steps,
                 max_embeddings_multiples=100,
             ).images[0]
+            time_delta = time.time() - time_start
+
+            # const
+            NUDGE = 0.5
+            num_inference_steps = math.ceil(num_inference_steps * (1-NUDGE) + num_inference_steps * desired_inference_duration / (time_delta) * NUDGE)
 
             image = image.resize(toValidDimension(tuple(UPSCALE_FACTOR * d for d in dimension)))
             image.save(image_path)
+
 
         except Exception as ex:
             # ignore
