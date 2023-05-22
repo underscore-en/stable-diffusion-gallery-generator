@@ -26,5 +26,5 @@ py ./main.py --model_dir "C:\Users\Private\Desktop\stable_diffusion\models" --ov
 This script is copied from diffuser repository as a utility to convert safetensor files from civitai to diffuser format.
 
 ```bash
-py .\scripts\convert_original_stable_diffusion_to_diffusers.py --checkpoint_path "C:\Users\Private\Desktop\stable_diffusion\models\h.safetensors" --dump_path "C:\Users\Private\Desktop\stable_diffusion\models\h" --from_safetensors
+py .\scripts\convert_original_stable_diffusion_to_diffusers.py --checkpoint_path "C:\Users\Private\Desktop\stable_diffusion\models\perfect.safetensors" --dump_path "C:\Users\Private\Desktop\stable_diffusion\models\perfect" --from_safetensors
 ```

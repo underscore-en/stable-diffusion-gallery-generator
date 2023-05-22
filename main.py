@@ -24,21 +24,17 @@ def toValidDimension(dimension: Tuple[int, int]) -> Tuple[int, int]:
     multiple of 8 per spec
     """
     return tuple(8*floor(d/8) for d in dimension)
-
-def inference_steps_of(d):
-    return floor((30 * (d[0] + d[1]) / 1600 )**0.9)
-
 """
 consts
 """
-OVERNIGHT_BATCH_SIZE = 5
-DIMENSION_GENERATOR = lambda: random.choice([(800, 800), (800, 1200)])
+OVERNIGHT_BATCH_SIZE = 20
+DIMENSION_GENERATOR = lambda: random.choice([(800, 800), (720, 1080)])
 SCHEDULER = EulerAncestralDiscreteScheduler
 # SCHEDULER = DPMSolverMultistepScheduler
 TORCH_DTYPE = torch.float16
 UPSCALE_FACTOR = 2
 
-desired_inference_duration = 10
+desired_inference_duration = 8
 num_inference_steps = 5 # self regulated
 
 def DYNAMIC_PARSE_STRATEGY(lines):
@@ -58,10 +54,11 @@ def OVERNIGHT_PARSE_STRATEGY(lines):
                 prompt_lines.append(random.choice(buffer))
 
             use_buffer = not use_buffer
-        if use_buffer:
-            buffer.append(line)
         else:
-            prompt_lines.append(line)
+            if use_buffer:
+                buffer.append(line)
+            else:
+                prompt_lines.append(line)
 
     return guidance_scale, ", ".join(prompt_lines)
 
@@ -88,7 +85,7 @@ def generate_batch(pipeline_t2i, dimension, prompt: str, negative_prompt: str, g
             time_delta = time.time() - time_start
 
             # const
-            NUDGE = 0.5
+            NUDGE = 0.75
             num_inference_steps = math.ceil(num_inference_steps * (1-NUDGE) + num_inference_steps * desired_inference_duration / (time_delta) * NUDGE)
 
             image = image.resize(toValidDimension(tuple(UPSCALE_FACTOR * d for d in dimension)))
@@ -148,6 +145,14 @@ def main():
         while (True):
             dimension = DIMENSION_GENERATOR()
             now = time.time()
+
+            with open(prompt_file_path, 'r') as f:
+                lines = f.read().splitlines()
+            guidance_scale, prompt = OVERNIGHT_PARSE_STRATEGY(lines)
+            print(prompt)
+            with open(negative_prompt_file_path, 'r') as f:
+                negative_prompt = ", ".join(f.read().splitlines())
+
             for modelname in os.listdir(model_dir):
                 # get model
                 model_path = os.path.join(model_dir, modelname)
@@ -163,16 +168,9 @@ def main():
                 pipeline_t2i.scheduler = SCHEDULER.from_config(
                     pipeline_t2i.scheduler.config)
 
-                with open(prompt_file_path, 'r') as f:
-                    lines = f.read().splitlines()
-                guidance_scale, prompt = OVERNIGHT_PARSE_STRATEGY(lines)
-                with open(negative_prompt_file_path, 'r') as f:
-                    negative_prompt = ", ".join(f.read().splitlines())
+
 
                 generate_batch(pipeline_t2i, dimension, prompt, negative_prompt, guidance_scale, gallery_dump_path, OVERNIGHT_BATCH_SIZE, prefix)
-
-
-    
 
 
 if __name__ == "__main__":
