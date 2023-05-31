@@ -3,12 +3,11 @@ import time
 import argparse
 import os
 import math
+from datetime import datetime
 import random
-import itertools
 from math import floor
-from diffusers import DPMSolverMultistepScheduler, TextToVideoZeroPipeline, StableDiffusionUpscalePipeline, StableDiffusionLatentUpscalePipeline, EulerAncestralDiscreteScheduler
+from diffusers import EulerAncestralDiscreteScheduler
 from typing import Tuple
-from uuid import uuid4
 from lpw_pipeline import StableDiffusionLongPromptWeightingPipeline
 
 """
@@ -28,13 +27,13 @@ def toValidDimension(dimension: Tuple[int, int]) -> Tuple[int, int]:
 consts
 """
 OVERNIGHT_BATCH_SIZE = 20
-DIMENSION_GENERATOR = lambda: random.choice([(800, 800), (720, 1080)])
+DIMENSION_GENERATOR = lambda: random.choice([(800, 800)])
 SCHEDULER = EulerAncestralDiscreteScheduler
 # SCHEDULER = DPMSolverMultistepScheduler
 TORCH_DTYPE = torch.float16
 UPSCALE_FACTOR = 2
 
-desired_inference_duration = 8
+desired_inference_duration = 6
 num_inference_steps = 5 # self regulated
 
 def DYNAMIC_PARSE_STRATEGY(lines):
@@ -131,9 +130,10 @@ def main():
         pipeline_t2i.scheduler = SCHEDULER.from_config(
             pipeline_t2i.scheduler.config)
         dimension = DIMENSION_GENERATOR()
-        prefix = f"{now}_{model_name}"
  
         while True:
+            now = datetime.now().strftime("%H%M%S")
+            prefix = f"{now}_{model_name}"
             with open(prompt_file_path, 'r') as f:
                 lines = f.read().splitlines()
             guidance_scale, prompt = DYNAMIC_PARSE_STRATEGY(lines)
